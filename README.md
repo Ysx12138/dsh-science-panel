@@ -7,7 +7,7 @@
 ## 开始使用
 
 1. 安装并打开 DeepSeek Harness。版本范围见 `package.json` 的 `engines.dsh`。
-2. 在 DSH 中进入「插件」→「添加插件」→「安装第三方插件」，输入 `dsh-science-panel` 并安装。也可以输入 GitHub 仓库地址 `https://github.com/Ysx12138/dsh-science-panel`。
+2. 在 DSH 中进入「插件」→「添加插件」→「安装第三方插件」，输入 GitHub 仓库地址 `https://github.com/Ysx12138/dsh-science-panel` 并安装。npm 包发布后，也可以输入 `dsh-science-panel`。
 3. 在 DSH 左侧打开「Claude Science」。首次使用会弹出模型设置：默认选择 **OpenCode / Qwen3.8 Flash**，填写该服务的 API Key（模型服务密钥）并保存。已有 Anthropic 官方 API Key 的用户也可选择对应预设。
 4. 插件会自动查找已有的 Science 或 CSSwitch 缓存；若没有，就通过电脑网络或已设置的系统代理下载并安装官方 Science，再自动启动。下载过程中请保持 DSH 打开。
 
