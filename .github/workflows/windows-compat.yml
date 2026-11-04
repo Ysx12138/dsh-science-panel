@@ -16,3 +16,5 @@ jobs:
           node-version: '22'
       - name: Run plugin tests on Windows
         run: npm test
+        env:
+          DSH_WINDOWS_CI_DIAGNOSTICS: '1'
