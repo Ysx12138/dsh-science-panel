@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promis
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { localScienceUrl } from '../lib/config.js';
+import { localScienceUrl,validCliPath } from '../lib/config.js';
 import { apply, findArtifact, saveDownload } from '../lib/index.js';
 import { Readable } from 'node:stream';
 
@@ -13,6 +13,15 @@ test('login accepts only the configured local service', () => {
   assert.throws(() => localScienceUrl('https://example.com:8990/example', 8990));
   assert.throws(() => localScienceUrl('http://127.0.0.1:8000/example', 8990));
   assert.throws(() => localScienceUrl('http://user@localhost:8990/example', 8990));
+});
+
+test('validates Windows and macOS executable paths without accepting relative paths',()=>{
+  assert.equal(validCliPath('C:\\Program Files\\Science\\claude-science.exe','win32'),true);
+  assert.equal(validCliPath('C:relative\\science.exe','win32'),false);
+  assert.equal(validCliPath('relative\\science.exe','win32'),false);
+  assert.equal(validCliPath('claude-science.exe','win32'),true);
+  assert.equal(validCliPath('/Applications/Science/bin/claude-science','darwin'),true);
+  assert.equal(validCliPath('relative/science','darwin'),false);
 });
 
 test('host endpoints reject unauthenticated requests', async () => {
