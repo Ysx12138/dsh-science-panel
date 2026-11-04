@@ -6,7 +6,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {discoverScienceRuntime} from '../lib/runtime-discovery.js';
 
-test('reuses a verified CSSwitch snapshot and rejects altered or linked files',async()=>{
+test('reuses a verified CSSwitch snapshot and rejects altered or linked files',{skip:process.platform==='win32'?'macOS runtime signature and permission checks are platform-specific':false},async()=>{
  const root=await mkdtemp(join(tmpdir(),'science-cache-test-'));
  try{
   const bytes='fixture runtime',digest=createHash('sha256').update(bytes).digest('hex'),file=join(root,'claude-science-'+digest);

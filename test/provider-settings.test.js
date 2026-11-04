@@ -9,7 +9,7 @@ test('settings are private, never returned to UI, and blank key preserves existi
  const directory=await mkdtemp(join(tmpdir(),'science-provider-test-'));
  try{
   await saveProviderSettings({baseUrl:'https://example.com',model:'test-model',key:'fixture-secret'},directory);
-  assert.equal((await stat(join(directory,'provider.json'))).mode & 0o777,0o600);
+  if(process.platform!=='win32') assert.equal((await stat(join(directory,'provider.json'))).mode & 0o777,0o600);
   const exposed=await readProviderSettings(directory);
   assert.equal(exposed.keyConfigured,true);assert.equal(exposed.active,false);
   assert.equal(JSON.stringify(exposed).includes('fixture-secret'),false);

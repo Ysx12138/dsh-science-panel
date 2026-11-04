@@ -42,7 +42,9 @@ test('download uses the stored artifact, preserves names, and never overwrites',
     await mkdir(artifacts, {recursive:true}); await mkdir(downloads);
     const version='12345678-1234-1234-1234-123456789abc', artifact='87654321-4321-4321-4321-cba987654321';
     await writeFile(join(artifacts,'data.md'),'original');
-    execFileSync('sqlite3',[join(org,'operon-cli.db'),`CREATE TABLE artifacts(id TEXT, filename TEXT, latest_version_id TEXT); CREATE TABLE artifact_versions(id TEXT, artifact_id TEXT, storage_path TEXT); INSERT INTO artifacts VALUES('${artifact}','example.md','${version}'); INSERT INTO artifact_versions VALUES('${version}','${artifact}','data.md');`]);
+    const sqlite=await import('node:sqlite').catch(()=>null);
+    function runSql(sql){if(sqlite?.DatabaseSync){const db=new sqlite.DatabaseSync(join(org,'operon-cli.db'));try{db.exec(sql)}finally{db.close()}}else execFileSync('sqlite3',[join(org,'operon-cli.db'),sql]);}
+    runSql(`CREATE TABLE artifacts(id TEXT, filename TEXT, latest_version_id TEXT); CREATE TABLE artifact_versions(id TEXT, artifact_id TEXT, storage_path TEXT); INSERT INTO artifacts VALUES('${artifact}','example.md','${version}'); INSERT INTO artifact_versions VALUES('${version}','${artifact}','data.md');`);
     const record = await findArtifact(dir, undefined, version);
     assert.equal(record.name,'example.md');
     assert.equal(await saveDownload(record.source,record.name,downloads),'example.md');
@@ -52,7 +54,7 @@ test('download uses the stored artifact, preserves names, and never overwrites',
     await assert.rejects(findArtifact(dir,"' OR 1=1 --",undefined),/无效/);
     await writeFile(join(dir,'outside.md'),'outside');
     await symlink(join(dir,'outside.md'),join(artifacts,'escape.md'));
-    execFileSync('sqlite3',[join(org,'operon-cli.db'),`UPDATE artifact_versions SET storage_path='escape.md';`]);
+    runSql(`UPDATE artifact_versions SET storage_path='escape.md';`);
     await assert.rejects(findArtifact(dir,undefined,version),/文件位置不受支持/);
   } finally { await rm(dir,{recursive:true,force:true}); }
 });
