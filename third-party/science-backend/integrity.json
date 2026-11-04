@@ -1,0 +1,7 @@
+{
+  "Contents/MacOS/desktop": "c1fc818d4b19f9adb85f84360e38a1c73830f729ca24f9fc9abafb7021e7fd4e",
+  "Contents/MacOS/csswitch-gateway": "6147f09bc91bc50c0cc1c446079904a2a9a3356db662cb588d6affb265cc8633",
+  "Contents/Resources/scripts/launch-virtual-sandbox.sh": "aba4553e13b648f71e5e255d30ce4091782694fc3ae0d4f33a1e5559122d31b3",
+  "Contents/Resources/scripts/stop-science-sandbox.sh": "6280d406709852481151b9dbf662192ba0415dae0e931499f99c8c0722c9b362",
+  "Contents/Resources/scripts/ssh-bridge/ssh": "0828acbda9f296983c127149879526e92a3eb915cbc9874747e8cecbeab87c5c"
+}

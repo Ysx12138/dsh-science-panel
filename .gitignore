@@ -1,0 +1,15 @@
+node_modules/
+*.tgz
+.DS_Store
+coverage/
+.env
+.env.*
+!.env.example
+provider.json
+encryption.key
+.oauth-tokens
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3

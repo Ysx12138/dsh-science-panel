@@ -1,0 +1,63 @@
+name: Bug 反馈
+description: 报告一个问题（崩溃、报错、行为不对）
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。请尽量填全，能大幅加快定位。**请勿粘贴 API key、OAuth token、邮箱、私有 URL、一次性 nonce、路径 secret 或用户数据。**
+  - type: input
+    id: version
+    attributes:
+      label: CSSwitch 版本
+      description: 面板右下角显示（如 v0.1.2），或点「检查更新」查看
+      placeholder: v0.1.2
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS 版本 + 芯片
+      placeholder: macOS 15.5 / Apple M2
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: 用的是哪个 provider
+      options:
+        - DeepSeek
+        - 通义千问 Qwen
+        - 自定义 / 其它
+    validations:
+      required: false
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 打开面板
+        2. 填 key，点「一键越过登录」
+        3. ……
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: 期望结果 / 实际结果（含完整报错文字）
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志（可选，强烈建议）
+      description: 面板「日志」链接会打开 `~/.csswitch/logs/`；只贴 `proxy.log` / `sandbox.log` 中与问题直接相关的最小片段，先删除密钥、邮箱、私有 URL、nonce、路径 secret 和用户数据；请勿上传整份日志。
+      render: text
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: 确认
+      options:
+        - label: 我已确认贴出的内容不含 API key、OAuth token、邮箱、私有 URL、一次性 nonce、路径 secret 或用户数据，且日志只保留与问题直接相关的最小片段
+          required: true

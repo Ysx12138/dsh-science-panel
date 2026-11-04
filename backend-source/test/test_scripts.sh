@@ -1,0 +1,195 @@
+#!/usr/bin/env bash
+set -u
+FAILS=0
+ok() { echo "ok - $1"; }
+no() { echo "NOT ok - $1"; FAILS=$((FAILS+1)); }
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# 7.6 停止脚本如实报告
+T="$(mktemp -d /private/tmp/csswitch-test-scripts.XXXXXX)"
+T="$(cd "$T" && pwd -P)"
+cleanup() { rm -rf "$T"; }
+trap cleanup EXIT
+OUTER_HOME="$T/outerhome"
+mkdir -p "$OUTER_HOME/.claude-science"
+mkdir -p "$T/home/.claude-science"           # DATA_DIR 存在，走到 stop 调用
+FAKE_FAIL="$T/fake-fail"; printf '#!/bin/sh\nexit 1\n' > "$FAKE_FAIL"; chmod +x "$FAKE_FAIL"
+FAKE_OK="$T/fake-ok";     printf '#!/bin/sh\nexit 0\n' > "$FAKE_OK";   chmod +x "$FAKE_OK"
+
+out="$(HOME="$OUTER_HOME" SANDBOX_HOME="$T/home" SCIENCE_BIN="$FAKE_FAIL" "$ROOT/scripts/stop-science-sandbox.sh" 2>&1)"; rc=$?
+if [ $rc -ne 0 ]; then ok "stop reports failure rc!=0"; else no "stop hid failure (rc=$rc)"; fi
+if echo "$out" | grep -q "沙箱已停"; then no "stop falsely claimed success"; else ok "stop did not falsely claim success"; fi
+
+out="$(HOME="$OUTER_HOME" SANDBOX_HOME="$T/home" SCIENCE_BIN="$FAKE_OK" "$ROOT/scripts/stop-science-sandbox.sh" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q "沙箱已停"; then ok "stop reports success on rc=0"; else no "stop mis-reported success path (rc=$rc)"; fi
+
+FAKE_LINK="$T/fake-link"
+ln -s "$FAKE_OK" "$FAKE_LINK"
+out="$(HOME="$OUTER_HOME" SANDBOX_HOME="$T/home" SCIENCE_BIN="$FAKE_LINK" "$ROOT/scripts/stop-science-sandbox.sh" 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q "符号链接"; then ok "stop rejects explicit Science symlink"; else no "stop accepted explicit Science symlink (rc=$rc): $out"; fi
+
+mkdir -p "$T/real-bin-parent"
+cp "$FAKE_OK" "$T/real-bin-parent/claude-science"
+ln -s "$T/real-bin-parent" "$T/linked-bin-parent"
+PARENT_LINK_BIN="$T/linked-bin-parent/claude-science"
+out="$(HOME="$OUTER_HOME" SANDBOX_HOME="$T/home" SCIENCE_BIN="$PARENT_LINK_BIN" "$ROOT/scripts/stop-science-sandbox.sh" 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q "符号链接"; then ok "stop rejects symlinked Science parent"; else no "stop accepted symlinked Science parent (rc=$rc): $out"; fi
+
+mkdir -p "$T/realhome/.claude-science"
+out="$(HOME="$T/realhome" SANDBOX_HOME="$T/realhome" SCIENCE_BIN="$FAKE_OK" "$ROOT/scripts/stop-science-sandbox.sh" 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q "真实目录"; then ok "stop rejects real data-dir collision"; else no "stop allowed real data-dir collision (rc=$rc): $out"; fi
+
+mkdir -p "$T/linkhome"
+ln -s "$OUTER_HOME/.claude-science" "$T/linkhome/.claude-science"
+out="$(HOME="$OUTER_HOME" SANDBOX_HOME="$T/linkhome" SCIENCE_BIN="$FAKE_OK" "$ROOT/scripts/stop-science-sandbox.sh" 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q "真实目录"; then ok "stop rejects symlinked real data-dir collision"; else no "stop allowed symlinked real data-dir collision (rc=$rc): $out"; fi
+
+mkdir -p "$T/outside-data" "$T/arbitrary-linkhome"
+ln -s "$T/outside-data" "$T/arbitrary-linkhome/.claude-science"
+out="$(HOME="$OUTER_HOME" SANDBOX_HOME="$T/arbitrary-linkhome" SCIENCE_BIN="$FAKE_OK" "$ROOT/scripts/stop-science-sandbox.sh" 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q "符号链接"; then ok "stop rejects arbitrary symlinked data-dir"; else no "stop followed arbitrary symlinked data-dir (rc=$rc): $out"; fi
+
+# 7.7 端口归一化 + dry-run
+out="$(SANDBOX_HOME="$T/vh" "$ROOT/scripts/launch-virtual-sandbox.sh" --port 08765 --dry-run 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q "拒绝"; then ok "08765 rejected via int-normalize"; else no "08765 bypassed guard (rc=$rc)"; fi
+
+out="$(SANDBOX_HOME="$T/vh" "$ROOT/scripts/launch-virtual-sandbox.sh" --port 9931 --dry-run 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q "DRY-RUN OK"; then ok "valid port passes guards in dry-run"; else no "valid port dry-run failed (rc=$rc): $out"; fi
+
+out="$(SANDBOX_HOME="$T/vh" "$ROOT/scripts/launch-virtual-sandbox.sh" --port 8764 --dry-run 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q "预览端口"; then ok "preview port cannot collide with reserved 8765"; else no "preview port reached reserved 8765 (rc=$rc): $out"; fi
+
+out="$(SANDBOX_HOME="$T/vh" "$ROOT/scripts/launch-virtual-sandbox.sh" --port 65535 --dry-run 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q "小于 65535"; then ok "preview port overflow rejected"; else no "preview port overflow accepted (rc=$rc): $out"; fi
+
+out="$(SANDBOX_HOME="$T/vh" "$ROOT/scripts/launch-virtual-sandbox.sh" --port 9931 --proxy-url http://127.0.0.1:9932/path-secret --dry-run 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q "Gateway 端口冲突"; then ok "preview port cannot collide with Gateway"; else no "preview/Gateway collision accepted (rc=$rc): $out"; fi
+
+mkdir -p "$T/no-ssh-home"
+out="$(HOME="$T/no-ssh-home" SANDBOX_HOME="$T/vh-no-ssh" CSSWITCH_REUSE_SYSTEM_SSH=1 "$ROOT/scripts/launch-virtual-sandbox.sh" --port 9935 --dry-run 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q "未找到系统 ~/.ssh/config"; then ok "SSH bridge fails closed without system config"; else no "SSH bridge accepted missing system config (rc=$rc): $out"; fi
+
+BRIDGE_HOME="$T/bridge-home"
+mkdir -p "$BRIDGE_HOME/.ssh"
+printf 'Host bridge-alias\n  HostName 127.0.0.1\n  Port 2222\n' > "$BRIDGE_HOME/.ssh/config"
+out="$(CSSWITCH_SYSTEM_SSH_CONFIG="$BRIDGE_HOME/.ssh/config" "$ROOT/scripts/ssh-bridge/ssh" -G bridge-alias 2>/dev/null)"; rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -qx 'hostname 127.0.0.1' && echo "$out" | grep -qx 'port 2222'; then ok "SSH bridge injects the authorized config with -F"; else no "SSH bridge did not load authorized config (rc=$rc)"; fi
+out="$(env -u CSSWITCH_SYSTEM_SSH_CONFIG "$ROOT/scripts/ssh-bridge/ssh" -G bridge-alias 2>&1)"; rc=$?
+if [ $rc -eq 126 ] && echo "$out" | grep -q "缺少有效"; then ok "SSH bridge rejects missing authorization env"; else no "SSH bridge ran without authorization env (rc=$rc)"; fi
+
+out="$(HOME="$OUTER_HOME" SANDBOX_HOME="$T/arbitrary-linkhome" "$ROOT/scripts/launch-virtual-sandbox.sh" --port 9934 --dry-run 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q "符号链接"; then ok "launch rejects arbitrary symlinked data-dir"; else no "launch followed arbitrary symlinked data-dir (rc=$rc): $out"; fi
+
+# Capture files live under isolated HOME so env -i Science still can write them.
+CAPTURE_SANDBOX="$T/vh-capture"
+mkdir -p "$CAPTURE_SANDBOX"
+CAPTURE_FILE="$CAPTURE_SANDBOX/launch-args"
+CAPTURE_ENV="$CAPTURE_SANDBOX/launch-env"
+FAKE_CAPTURE="$T/fake-capture"
+mkdir -p "$OUTER_HOME/.claude-science/runtime"
+mkdir -p "$OUTER_HOME/.ssh"
+printf 'must-not-copy\n' > "$OUTER_HOME/.claude-science/runtime/real-user-sentinel"
+printf 'Host test-only\n  HostName 127.0.0.1\n' > "$OUTER_HOME/.ssh/config"
+# Stub Science: under env -i only HOME and allowlisted vars exist. Write captures
+# into $HOME (sandbox home) instead of ambient CAPTURE_* paths.
+printf '%s\n' '#!/bin/sh' \
+  'printf "%s\n" "$@" > "$HOME/launch-args"' \
+  'printf "PATH=%s\nSSH_CONFIG=%s\nHOME=%s\n" "$PATH" "${CSSWITCH_SYSTEM_SSH_CONFIG:-}" "$HOME" > "$HOME/launch-env"' \
+  'exit 0' > "$FAKE_CAPTURE"
+chmod +x "$FAKE_CAPTURE"
+out="$(HOME="$OUTER_HOME" CSSWITCH_HOST_HOME="$OUTER_HOME" SANDBOX_HOME="$CAPTURE_SANDBOX" SCIENCE_BIN="$FAKE_CAPTURE" CSSWITCH_REUSE_SYSTEM_SSH=1 CSSWITCH_SYSTEM_SSH_HOSTS="test-only second-alias" "$ROOT/scripts/launch-virtual-sandbox.sh" --port 9940 --skip-oauth-forge 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && grep -qx -- '--host' "$CAPTURE_FILE" && grep -qx -- '127.0.0.1' "$CAPTURE_FILE" && grep -qx -- '--sandbox-port' "$CAPTURE_FILE" && grep -qx -- '9941' "$CAPTURE_FILE"; then ok "launch pins loopback host and explicit Science preview port"; else no "launch omitted explicit loopback/preview port (rc=$rc): $out"; fi
+ACCEPTANCE_SANDBOX="$T/vh-acceptance-outer-sandbox"
+mkdir -p "$ACCEPTANCE_SANDBOX"
+out="$(HOME="$OUTER_HOME" CSSWITCH_HOST_HOME="$OUTER_HOME" SANDBOX_HOME="$ACCEPTANCE_SANDBOX" SCIENCE_BIN="$FAKE_CAPTURE" CSSWITCH_ACCEPTANCE_OUTER_SANDBOX=1 "$ROOT/scripts/launch-virtual-sandbox.sh" --port 9948 --skip-oauth-forge 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q "外层 sandbox"; then ok "acceptance inner-sandbox opt-out fails closed without an outer sandbox"; else no "acceptance inner-sandbox opt-out ran without an outer sandbox (rc=$rc): $out"; fi
+ACCEPTANCE_GUARDED_SANDBOX="$T/vh-acceptance-guarded"
+mkdir -p "$ACCEPTANCE_GUARDED_SANDBOX"
+out="$(/usr/bin/sandbox-exec -p '(version 1)(allow default)(deny network-outbound)(allow network-outbound (remote ip "localhost:*"))' /usr/bin/env HOME="$OUTER_HOME" CSSWITCH_HOST_HOME="$OUTER_HOME" SANDBOX_HOME="$ACCEPTANCE_GUARDED_SANDBOX" SCIENCE_BIN="$FAKE_CAPTURE" CSSWITCH_ACCEPTANCE_OUTER_SANDBOX=1 "$ROOT/scripts/launch-virtual-sandbox.sh" --port 9948 --skip-oauth-forge 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && grep -Fxq -- '--dangerously-no-sandbox' "$ACCEPTANCE_GUARDED_SANDBOX/launch-args"; then ok "acceptance outer sandbox explicitly replaces the incompatible inner Science sandbox"; else no "acceptance outer sandbox did not inject the exact Science opt-out (rc=$rc): $out"; fi
+OPAQUE_SANDBOX="$T/vh-opaque-binding"
+mkdir -p "$OPAQUE_SANDBOX/.claude-science/conda"
+OPAQUE_CONDA_BINDING="$(stat -f '%d:%i' "$OPAQUE_SANDBOX/.claude-science/conda")"
+OPAQUE_BINDINGS="conda=$OPAQUE_CONDA_BINDING;runtime=absent;seed-assets=absent;r-libs=absent;sbx-bind-src=absent"
+out="$(HOME="$OUTER_HOME" SANDBOX_HOME="$OPAQUE_SANDBOX" SCIENCE_BIN="$FAKE_CAPTURE" CAPTURE_FILE="$CAPTURE_FILE" CSSWITCH_RUNTIME_VERSION_PRECHECKED=1 CSSWITCH_SCIENCE_OPAQUE_BINDINGS="$OPAQUE_BINDINGS" "$ROOT/scripts/launch-virtual-sandbox.sh" --port 9946 --skip-oauth-forge 2>&1)"; rc=$?
+if [ $rc -eq 0 ]; then ok "launch accepts exact opaque-root device/inode bindings"; else no "launch rejected exact opaque-root bindings (rc=$rc): $out"; fi
+mv "$OPAQUE_SANDBOX/.claude-science/conda" "$OPAQUE_SANDBOX/.claude-science/conda-displaced"
+mkdir "$OPAQUE_SANDBOX/.claude-science/conda"
+out="$(HOME="$OUTER_HOME" SANDBOX_HOME="$OPAQUE_SANDBOX" SCIENCE_BIN="$FAKE_CAPTURE" CAPTURE_FILE="$CAPTURE_FILE" CSSWITCH_RUNTIME_VERSION_PRECHECKED=1 CSSWITCH_SCIENCE_OPAQUE_BINDINGS="$OPAQUE_BINDINGS" "$ROOT/scripts/launch-virtual-sandbox.sh" --port 9946 --skip-oauth-forge 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q "opaque root 启动绑定已变化"; then ok "launch rejects opaque-root rebind immediately before Science serve"; else no "launch accepted rebound opaque root (rc=$rc): $out"; fi
+if grep -Fq "PATH=$CAPTURE_SANDBOX/.csswitch-ssh-bridge:" "$CAPTURE_ENV" && grep -Fxq "SSH_CONFIG=$OUTER_HOME/.ssh/config" "$CAPTURE_ENV" && grep -Fxq "HOME=$CAPTURE_SANDBOX" "$CAPTURE_ENV" && ! grep -q 'SSH_HOSTS=' "$CAPTURE_ENV"; then ok "launch scopes SSH bridge snapshot to the isolated Science environment"; else no "launch omitted isolated SSH bridge snapshot environment"; fi
+SSH_SNAPSHOT="$CAPTURE_SANDBOX/.csswitch-ssh-bridge/ssh"
+if [ -f "$SSH_SNAPSHOT" ] && [ ! -L "$SSH_SNAPSHOT" ] && [ "$(stat -f '%Lp' "$SSH_SNAPSHOT")" = "500" ] && [ "$(stat -f '%Lp' "$(dirname "$SSH_SNAPSHOT")")" = "700" ] && [ "$(shasum -a 256 "$SSH_SNAPSHOT" | awk '{print $1}')" = "0828acbda9f296983c127149879526e92a3eb915cbc9874747e8cecbeab87c5c" ]; then ok "launch pins SSH wrapper to a private content snapshot"; else no "launch did not pin the SSH wrapper snapshot identity"; fi
+SANDBOX_SSH_CONFIG="$CAPTURE_SANDBOX/.ssh/config"
+SANDBOX_SSH_MODE="$(stat -f '%Lp' "$SANDBOX_SSH_CONFIG" 2>/dev/null || true)"
+if [ -f "$SANDBOX_SSH_CONFIG" ] && [ ! -L "$SANDBOX_SSH_CONFIG" ] && [ "$SANDBOX_SSH_MODE" = "600" ]; then ok "opt-in creates a narrow regular 0600 sandbox SSH config"; else no "opt-in did not create a safe sandbox SSH config"; fi
+if grep -Fxq 'Host test-only second-alias' "$SANDBOX_SSH_CONFIG" && grep -Fxq "Include \"$OUTER_HOME/.ssh/config\"" "$SANDBOX_SSH_CONFIG" && ! grep -q 'HostName\|IdentityFile\|ProxyCommand' "$SANDBOX_SSH_CONFIG"; then ok "sandbox SSH config materializes only concrete Host aliases before Include"; else no "sandbox SSH config did not materialize the Science preflight alias boundary"; fi
+out_ssh="$(/usr/bin/ssh -F "$SANDBOX_SSH_CONFIG" -G test-only 2>/dev/null)"; rc_ssh=$?
+if [ $rc_ssh -eq 0 ] && echo "$out_ssh" | grep -qx 'hostname 127.0.0.1'; then ok "sandbox SSH config Include resolves Host with system OpenSSH"; else no "sandbox SSH config did not resolve included Host (rc=$rc_ssh)"; fi
+if [ ! -e "$T/vh-capture/.claude-science/runtime/real-user-sentinel" ]; then ok "launch never copies real Science runtime data"; else no "launch copied real Science data into sandbox"; fi
+if ! echo "$out" | grep -Fq "$CAPTURE_SANDBOX" && ! echo "$out" | grep -Fq "$FAKE_CAPTURE"; then ok "launch log redacts sandbox and binary paths"; else no "launch log exposed sensitive paths: $out"; fi
+
+out="$(HOME="$OUTER_HOME" CSSWITCH_HOST_HOME="$OUTER_HOME" SANDBOX_HOME="$CAPTURE_SANDBOX" SCIENCE_BIN="$FAKE_CAPTURE" CSSWITCH_REUSE_SYSTEM_SSH=0 "$ROOT/scripts/launch-virtual-sandbox.sh" --port 9940 --skip-oauth-forge 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && [ ! -e "$SANDBOX_SSH_CONFIG" ] && [ ! -L "$SANDBOX_SSH_CONFIG" ]; then ok "disabling SSH removes only the managed sandbox config"; else no "disabling SSH left the managed sandbox config or failed (rc=$rc): $out"; fi
+
+FOREIGN_SANDBOX="$T/vh-foreign-ssh"
+mkdir -p "$FOREIGN_SANDBOX/.ssh"
+printf 'Host foreign\n' > "$FOREIGN_SANDBOX/.ssh/config"
+out="$(HOME="$OUTER_HOME" SANDBOX_HOME="$FOREIGN_SANDBOX" SCIENCE_BIN="$FAKE_CAPTURE" CSSWITCH_REUSE_SYSTEM_SSH=1 CSSWITCH_SYSTEM_SSH_HOSTS="test-only" "$ROOT/scripts/launch-virtual-sandbox.sh" --port 9942 --skip-oauth-forge 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q "不是 CSSwitch 管理" && grep -qx 'Host foreign' "$FOREIGN_SANDBOX/.ssh/config"; then ok "SSH opt-in refuses and preserves a foreign sandbox config"; else no "SSH opt-in overwrote or accepted a foreign sandbox config (rc=$rc): $out"; fi
+
+FORGED_SANDBOX="$T/vh-forged-ssh"
+mkdir -p "$FORGED_SANDBOX/.ssh"
+printf '# CSSwitch managed system SSH config bridge v1\nInclude "/different/config"\n\nHost must-survive\n' > "$FORGED_SANDBOX/.ssh/config"
+out="$(HOME="$OUTER_HOME" SANDBOX_HOME="$FORGED_SANDBOX" SCIENCE_BIN="$FAKE_CAPTURE" CSSWITCH_REUSE_SYSTEM_SSH=1 CSSWITCH_SYSTEM_SSH_HOSTS="test-only" "$ROOT/scripts/launch-virtual-sandbox.sh" --port 9943 --skip-oauth-forge 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && grep -q 'Host must-survive' "$FORGED_SANDBOX/.ssh/config"; then ok "SSH opt-in preserves a forged marker with a different Include"; else no "SSH opt-in trusted or overwrote a forged marker (rc=$rc): $out"; fi
+
+LINK_SANDBOX="$T/vh-linked-ssh"
+mkdir -p "$LINK_SANDBOX" "$T/ssh-link-target"
+ln -s "$T/ssh-link-target" "$LINK_SANDBOX/.ssh"
+out="$(HOME="$OUTER_HOME" SANDBOX_HOME="$LINK_SANDBOX" SCIENCE_BIN="$FAKE_CAPTURE" CSSWITCH_REUSE_SYSTEM_SSH=1 CSSWITCH_SYSTEM_SSH_HOSTS="test-only" "$ROOT/scripts/launch-virtual-sandbox.sh" --port 9944 --skip-oauth-forge 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q "符号链接" && [ ! -e "$T/ssh-link-target/config" ]; then ok "SSH opt-in rejects a symlinked sandbox .ssh directory"; else no "SSH opt-in followed a symlinked sandbox .ssh directory (rc=$rc): $out"; fi
+
+python3 -c 'import socket,time; s=socket.socket(); s.bind(("127.0.0.1",29992)); s.listen(); time.sleep(10)' &
+PREVIEW_HOLDER=$!
+sleep 0.2
+out="$(HOME="$OUTER_HOME" SANDBOX_HOME="$T/vh-preview-conflict" SCIENCE_BIN="$FAKE_CAPTURE" CAPTURE_FILE="$CAPTURE_FILE" "$ROOT/scripts/launch-virtual-sandbox.sh" --port 29991 --skip-oauth-forge 2>&1)"; rc=$?
+kill "$PREVIEW_HOLDER" 2>/dev/null || true
+wait "$PREVIEW_HOLDER" 2>/dev/null || true
+if [ $rc -ne 0 ] && echo "$out" | grep -q "预览端口.*占用"; then ok "launch rejects occupied preview listener without takeover"; else no "launch ignored occupied preview listener (rc=$rc): $out"; fi
+
+out="$(HOME="$OUTER_HOME" SANDBOX_HOME="$T/vh-link" SCIENCE_BIN="$FAKE_LINK" "$ROOT/scripts/launch-virtual-sandbox.sh" --port 9932 --skip-oauth-forge 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q "符号链接"; then ok "launch rejects explicit Science symlink"; else no "launch accepted explicit Science symlink (rc=$rc): $out"; fi
+
+out="$(HOME="$OUTER_HOME" SANDBOX_HOME="$T/vh-parent-link" SCIENCE_BIN="$PARENT_LINK_BIN" "$ROOT/scripts/launch-virtual-sandbox.sh" --port 9933 --skip-oauth-forge 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q "符号链接"; then ok "launch rejects symlinked Science parent"; else no "launch accepted symlinked Science parent (rc=$rc): $out"; fi
+
+# Ambient env must not enter Science (env -i allowlist).
+ALLOW_SANDBOX="$T/vh-allowlist"
+mkdir -p "$ALLOW_SANDBOX"
+ALLOW_STUB="$T/fake-allowlist"
+printf '%s\n' '#!/bin/sh' 'env | sort > "$HOME/allowlist-env.txt"' 'exit 0' > "$ALLOW_STUB"
+chmod +x "$ALLOW_STUB"
+out="$(HOME="$OUTER_HOME" CSSWITCH_HOST_HOME="$OUTER_HOME" SANDBOX_HOME="$ALLOW_SANDBOX" SCIENCE_BIN="$ALLOW_STUB" CSSWITCH_TEST_SENTINEL_SECRET=parent-sentinel-must-not-leak OPENAI_API_KEY=sk-parent-must-not-leak CSSWITCH_REUSE_SYSTEM_SSH=0 "$ROOT/scripts/launch-virtual-sandbox.sh" --port 9950 --skip-oauth-forge 2>&1)"; rc=$?
+ALLOW_ENV="$ALLOW_SANDBOX/allowlist-env.txt"
+if [ $rc -eq 0 ] && [ -f "$ALLOW_ENV" ] && ! grep -q 'CSSWITCH_TEST_SENTINEL_SECRET\|parent-sentinel-must-not-leak\|OPENAI_API_KEY\|sk-parent-must-not-leak' "$ALLOW_ENV" && grep -q "^HOME=$ALLOW_SANDBOX$" "$ALLOW_ENV" && grep -q '^ANTHROPIC_BASE_URL=' "$ALLOW_ENV"; then ok "launch env -i drops ambient secrets and keeps required Science vars"; else no "launch env allowlist failed (rc=$rc): $out"; fi
+
+# Stop script must work under Desktop allowlist using CSSWITCH_HOST_HOME.
+STOP_SANDBOX="$T/vh-stop-allowlist"
+mkdir -p "$STOP_SANDBOX/.claude-science"
+STOP_STUB="$T/fake-stop-science"
+printf '%s\n' '#!/bin/sh' 'exit 0' > "$STOP_STUB"
+chmod +x "$STOP_STUB"
+# Prefer CSSWITCH_HOST_HOME; polluted HOME must not become REAL_HOME for guards.
+out="$(env -i PATH="/usr/bin:/bin:/usr/sbin:/sbin" HOME="/nonexistent-polluted-home-$$" CSSWITCH_HOST_HOME="$OUTER_HOME" SANDBOX_HOME="$STOP_SANDBOX" SCIENCE_BIN="$STOP_STUB" "$ROOT/scripts/stop-science-sandbox.sh" 2>&1)"; rc=$?
+if [ $rc -eq 0 ] && echo "$out" | grep -q "沙箱已停"; then ok "stop prefers CSSWITCH_HOST_HOME over polluted HOME"; else no "stop failed with CSSWITCH_HOST_HOME (rc=$rc): $out"; fi
+# Collision guard uses host home: sandbox home == host home must fail closed.
+out="$(env -i PATH="/usr/bin:/bin:/usr/sbin:/sbin" CSSWITCH_HOST_HOME="$STOP_SANDBOX" SANDBOX_HOME="$STOP_SANDBOX" SCIENCE_BIN="$STOP_STUB" "$ROOT/scripts/stop-science-sandbox.sh" 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q "真实目录"; then ok "stop collision guard uses CSSWITCH_HOST_HOME"; else no "stop collision guard missed CSSWITCH_HOST_HOME (rc=$rc): $out"; fi
+
+# 7.7 review: 畸形端口必须失败关闭（fail-closed），而不是绕过算术守卫
+out="$(SANDBOX_HOME="$T/vh2" "$ROOT/scripts/launch-virtual-sandbox.sh" --port 8765x --dry-run 2>&1)"; rc=$?
+if [ $rc -ne 0 ] && echo "$out" | grep -q "拒绝"; then ok "malformed port 8765x rejected fail-closed"; else no "malformed port 8765x slipped guard (rc=$rc): $out"; fi
+
+echo "----"
+if [ $FAILS -eq 0 ]; then echo "ALL PASS"; exit 0; else echo "$FAILS FAILED"; exit 1; fi
