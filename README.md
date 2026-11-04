@@ -7,14 +7,14 @@
 ## 开始使用
 
 1. 安装并打开 DeepSeek Harness。版本范围见 `package.json` 的 `engines.dsh`。
-2. 从 [Claude Science 官网](https://claude.com/product/claude-science)安装官方应用，并将其放入 macOS 的“应用程序”文件夹。Science 本体由 Anthropic 提供，本仓库不包含该应用。使用官方软件及账号须遵守其服务条款和可用性要求。
+2. 电脑上需要有 Claude Science 本体，或此前使用 CSSwitch 留下的有效 Science 缓存。插件会自动查找；缓存会核对文件摘要和开发者签名。本仓库不包含 Science 本体，也不自动下载安装。
 3. 克隆本仓库。在终端进入克隆后的目录，运行 `pwd` 并复制显示的完整路径。
 4. 在 DSH 中进入「插件」→「添加插件」→「安装第三方插件」，粘贴刚才的**本地目录路径**并安装。DSH 不会自动发现新克隆的文件夹。发布到 GitHub 后，也可在此输入仓库地址。
-5. 在 DSH 左侧打开「Claude Science」→「模型设置」。默认选择 **OpenCode / Qwen3.8 Flash**，填写该服务的 API Key（模型服务密钥）并保存；已有 Anthropic 官方 API Key 的用户也可选择对应预设。点击「启动隔离 Science」。
+5. 在 DSH 左侧打开「Claude Science」。首次使用会弹出模型设置：默认选择 **OpenCode / Qwen3.8 Flash**，填写该服务的 API Key（模型服务密钥）并保存，插件随后自动启动。已有 Anthropic 官方 API Key 的用户也可选择对应预设。
 
 预设会自动填写服务地址和模型名。要使用其他支持 Anthropic Messages 接口的服务，选择「自定义」，再填写服务地址、模型名和对应的 Key。切换到不同服务时需要重新填写 Key，避免把原服务的密钥发给新服务。Key 保存在本机私有文件中，权限限制为当前用户，但文件内容是明文；请求会发送给所选模型服务并可能产生费用。
 
-可在克隆目录运行 `./scripts/check-prerequisites.sh` 检查本机架构和官方 Science 是否就位。该命令只检查，不安装或修改应用。
+可在克隆目录运行 `./scripts/check-prerequisites.sh` 检查本机架构和 Science 是否就位。该命令只检查，不安装或修改应用。
 
 ## 能力与边界
 
@@ -29,10 +29,10 @@
 
 已在现有 Apple Silicon Mac 上验证隔离 Science 的启动、停止、真实对话、旧对话预览、中文显示和文档下载；在独立 DSH 测试配置中验证了本地目录可作为插件安装并注册。自动测试使用模拟服务和测试 Key。
 
-**尚未完成全新 macOS 用户从克隆到真实模型回复的端到端测试**。使用现有 OpenCode Key 测试预设时，服务返回 Cloudflare HTTP 403（1010），没有获得模型回复，也无法据此判断 Key 是否有效；Anthropic 官方预设尚未用真实 Key 验证。模型服务可能更改地址、协议或权限。Intel Mac 和其他系统不受当前构建支持。
+**尚未完成全新 macOS 用户从克隆到真实模型回复的端到端测试**。没有 Science 本体或缓存的新电脑仍需要可用的安装来源；目前没有验证 CSSwitch 项目提供独立的 Science 安装包。使用现有 OpenCode Key 测试预设时，服务返回 Cloudflare HTTP 403（1010），没有获得模型回复，也无法据此判断 Key 是否有效；Anthropic 官方预设尚未用真实 Key 验证。模型服务可能更改地址、协议或权限。Intel Mac 和其他系统不受当前构建支持。
 
 ## 开发和许可
 
 `npm test` 运行插件测试。`backend-source/` 包含对应的 CSSwitch 修改源码；`third-party/` 包含许可、二进制来源和已收集的依赖声明。后台为临时签名构建，没有 Apple Developer 身份签名，可能受到 macOS 安装限制。
 
-CSSwitch 使用 MIT 许可。依赖声明及许可证清单已收集，但打包后二进制的依赖、前端资源和发行许可仍需完整复核，完成后再公开发布。Claude Science 属于 Anthropic，须由用户从官方渠道安装；请不要将用户的 Key、历史数据或该应用本体提交到仓库。
+CSSwitch 使用 MIT 许可。依赖声明及许可证清单已收集，但打包后二进制的依赖、前端资源和发行许可仍需完整复核，完成后再公开发布。Claude Science 属于 Anthropic；请不要将用户的 Key、历史数据或该应用本体提交到仓库。

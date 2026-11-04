@@ -8,7 +8,7 @@ import {BackendProcess} from '../lib/backend-process.js';
 import {saveProviderSettings} from '../lib/provider-settings.js';
 test('settings reach a private child process, then confirmed stop closes the controller',async()=>{
  const directory=await mkdtemp(join(tmpdir(),'science-backend-'));
- const backend=new BackendProcess(process.execPath,{args:[fileURLToPath(new URL('../fixtures/fake-backend.mjs',import.meta.url))],directory,timeoutMs:5000});
+ const backend=new BackendProcess(process.execPath,{args:[fileURLToPath(new URL('../fixtures/fake-backend.mjs',import.meta.url)),'--expect-cache'],directory,runtimePath:'/fixture/science',timeoutMs:5000});
  try {
   await saveProviderSettings({baseUrl:'https://example.com',model:'fake-model',key:'fixture-secret'},directory);
   const result=await backend.start();assert.equal(result.status,'started');assert.ok(result.science_port>0);

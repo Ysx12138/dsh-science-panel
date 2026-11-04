@@ -2,7 +2,7 @@ import {createInterface} from 'node:readline';
 let stopCalls=0;
 for await(const line of createInterface({input:process.stdin})){
  const value=JSON.parse(line);
- if(value.command==='configure_start' && value.key==='fixture-secret')console.log('DSH_SCIENCE_RESULT:'+JSON.stringify({ok:true,result:{status:'started',science_port:value.science_port}}));
+ if(value.command==='configure_start' && value.key==='fixture-secret' && (!process.argv.includes('--expect-cache')||process.env.SCIENCE_BIN==='/fixture/science'))console.log('DSH_SCIENCE_RESULT:'+JSON.stringify({ok:true,result:{status:'started',science_port:value.science_port}}));
  else if(value.command==='stop'){
   stopCalls++;
   if(process.argv.includes('--delay-stop'))await new Promise(resolve=>setTimeout(resolve,150));

@@ -16,8 +16,12 @@ fi
 if [ -x '/Applications/Claude Science.app/Contents/Resources/bin/claude-science' ]; then
   printf 'Claude Science 官方应用：已找到\n'
 else
-  printf '请从 https://claude.com/product/claude-science 安装 Claude Science 到“应用程序”文件夹。\n'
-  missing=1
+  if compgen -G "$HOME/.csswitch/runtime-snapshots/science/claude-science-*" >/dev/null || compgen -G "$HOME/.dsh-science-backend/runtime-snapshots/science/claude-science-*" >/dev/null; then
+    printf '发现 Science 缓存；启动时将校验文件。\n'
+  else
+    printf '未发现 Science 本体或 CSSwitch 缓存，首次安装仍需可用的本体来源。\n'
+    missing=1
+  fi
 fi
 printf '\n在 DSH 的「插件 → 添加插件 → 安装第三方插件」中输入以下本地目录：\n%s\n' "$project_dir"
 printf '安装后选择 Claude Science → 模型设置，选择服务并填写对应的 API Key。\n'
