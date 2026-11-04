@@ -2,6 +2,10 @@
   "name": "dsh-science-panel",
   "version": "0.1.0",
   "description": "Open a locally running Claude Science instance inside DeepSeek Harness.",
+  "repository": {"type":"git","url":"https://github.com/Ysx12138/dsh-science-panel.git"},
+  "homepage": "https://github.com/Ysx12138/dsh-science-panel#readme",
+  "bugs": {"url":"https://github.com/Ysx12138/dsh-science-panel/issues"},
+  "keywords": ["dsh-plugin", "deepseek-harness", "claude-science"],
   "type": "module",
   "main": "./lib/index.js",
   "files": [

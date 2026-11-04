@@ -7,7 +7,7 @@
 ## 开始使用
 
 1. 安装并打开 DeepSeek Harness。版本范围见 `package.json` 的 `engines.dsh`。
-2. 在 DSH 中进入「插件」→「添加插件」→「安装第三方插件」，输入本项目的 GitHub 仓库地址并安装。项目尚未发布时，可先克隆仓库，再输入克隆后的本地目录路径。
+2. 在 DSH 中进入「插件」→「添加插件」→「安装第三方插件」，输入 `dsh-science-panel` 并安装。也可以输入 GitHub 仓库地址 `https://github.com/Ysx12138/dsh-science-panel`。
 3. 在 DSH 左侧打开「Claude Science」。首次使用会弹出模型设置：默认选择 **OpenCode / Qwen3.8 Flash**，填写该服务的 API Key（模型服务密钥）并保存。已有 Anthropic 官方 API Key 的用户也可选择对应预设。
 4. 插件会自动查找已有的 Science 或 CSSwitch 缓存；若没有，就通过电脑网络或已设置的系统代理下载并安装官方 Science，再自动启动。下载过程中请保持 DSH 打开。
 
@@ -36,4 +36,4 @@
 
 `npm test` 运行插件测试。`backend-source/` 包含对应的 CSSwitch 修改源码；`third-party/` 包含许可、二进制来源和已收集的依赖声明。后台为临时签名构建，没有 Apple Developer 身份签名，可能受到 macOS 安装限制。
 
-CSSwitch 使用 MIT 许可。依赖声明及许可证清单已收集，但打包后二进制的依赖、前端资源和发行许可仍需完整复核，完成后再公开发布。Claude Science 属于 Anthropic；请不要将用户的 Key、历史数据或该应用本体提交到仓库。
+CSSwitch 使用 MIT 许可。依赖声明及许可证清单已收集，打包后二进制的依赖、前端资源和发行许可仍需完整复核。Claude Science 属于 Anthropic；请不要将用户的 Key、历史数据或该应用本体提交到仓库。
