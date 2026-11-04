@@ -19,8 +19,7 @@ else
   if compgen -G "$HOME/.csswitch/runtime-snapshots/science/claude-science-*" >/dev/null || compgen -G "$HOME/.dsh-science-backend/runtime-snapshots/science/claude-science-*" >/dev/null; then
     printf '发现 Science 缓存；启动时将校验文件。\n'
   else
-    printf '未发现 Science 本体或 CSSwitch 缓存，首次安装仍需可用的本体来源。\n'
-    missing=1
+    printf '未发现 Science 本体或缓存：首次启动时将自动下载官方程序。\n'
   fi
 fi
 printf '\n在 DSH 的「插件 → 添加插件 → 安装第三方插件」中输入以下本地目录：\n%s\n' "$project_dir"

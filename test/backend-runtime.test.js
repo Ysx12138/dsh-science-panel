@@ -34,3 +34,16 @@ test('failed stop retains runtime ownership so cleanup can be retried',async()=>
  assert.equal(runtime.process,process);assert.equal(runtime.config.port,12345);
  fail=false;await runtime.stop();assert.equal(runtime.process,null);assert.equal(runtime.config,null);
 });
+
+test('installs Science once when no runtime is available, then starts it',async()=>{
+ let checks=0,installs=0,starts=0;
+ const process={async start(){starts++;return {science_port:12345}},async stop(){}};
+ const runtime=new BackendRuntime({binaryResolver:async()=>'/fake',runtimeResolver:async()=>{if(++checks===1){const e=new Error('missing');e.code='SCIENCE_RUNTIME_MISSING';throw e}return null;},installer:async()=>{installs++},processFactory:()=>process,configResolver:async port=>({port,cli:'/isolated/bin',dataDir:'/isolated/data'})});
+ await runtime.start();assert.equal(checks,2);assert.equal(installs,1);assert.equal(starts,1);await runtime.stop();
+});
+
+test('does not install when discovery fails for another reason',async()=>{
+ let installs=0;
+ const runtime=new BackendRuntime({binaryResolver:async()=>'/fake',runtimeResolver:async()=>{throw new Error('unsafe cache')},installer:async()=>{installs++}});
+ await assert.rejects(runtime.start(),/unsafe cache/);assert.equal(installs,0);
+});
