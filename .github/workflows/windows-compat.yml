@@ -16,3 +16,20 @@ jobs:
           node-version: '22'
       - name: Run plugin tests on Windows
         run: npm test
+  gateway:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend-source/desktop/gateway
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Check Windows gateway
+        run: cargo check --locked
+      - name: Build Windows gateway
+        run: cargo build --locked --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: science-gateway-windows-x64
+          path: backend-source/desktop/gateway/target/release/csswitch-gateway.exe
