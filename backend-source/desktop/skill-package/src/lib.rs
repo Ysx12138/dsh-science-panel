@@ -4,8 +4,10 @@ mod github;
 mod inspection;
 mod install;
 mod listing;
+#[cfg(unix)]
 mod operation;
 mod plan;
+#[cfg(unix)]
 mod resolver;
 mod science;
 
@@ -36,6 +38,7 @@ pub use listing::{
     inspect_active_org_skills, InstalledSkillSource, InstalledSkillSummary,
     SkillFilesystemSnapshot, SkillListWarning, MAX_LISTED_SKILLS, MAX_SKILL_FRONTMATTER_BYTES,
 };
+#[cfg(unix)]
 pub use operation::{
     quarantine_name_transitioned_at, quarantine_owned_skill_at,
     release_unstaged_install_plan_reservation, reserve_install_plan_capacity,
@@ -58,6 +61,7 @@ pub use plan::{
     SourceBindingV1, MAX_PLAN_COMPONENTS, MAX_PLAN_EFFECTS, MAX_PLAN_FINDINGS,
     MAX_PLAN_FINDINGS_PER_COMPONENT, SKILL_PLAN_SCHEMA,
 };
+#[cfg(unix)]
 pub use resolver::{
     ExactStagedArchiveIdentityV1, ExactStagedGithubArchive, ResolveError,
     EXACT_STAGED_ARCHIVE_SCHEMA,

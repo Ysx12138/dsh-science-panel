@@ -17,5 +17,9 @@ pub mod policy;
 pub(crate) mod provider_contracts;
 pub mod science_control;
 pub mod server;
+#[cfg(unix)]
+pub mod skill_install;
+#[cfg(not(unix))]
+#[path = "skill_install_unsupported.rs"]
 pub mod skill_install;
 pub mod static_profile;
