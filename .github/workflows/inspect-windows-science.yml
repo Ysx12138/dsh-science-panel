@@ -1,0 +1,20 @@
+name: Inspect official Windows Science package
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download and inspect official package
+        shell: pwsh
+        run: |
+          $package = Join-Path $env:RUNNER_TEMP 'science-setup.exe'
+          curl.exe --fail --location --proto '=https' --proto-redir '=https' --max-time 600 --output $package 'https://downloads.claude.ai/claude-science/latest/windows-x64.exe'
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $signature = Get-AuthenticodeSignature -LiteralPath $package
+          if ($signature.Status -ne 'Valid') { throw 'Official package signature is invalid' }
+          $signature.SignerCertificate.Subject
+          & 'C:\Program Files\7-Zip\7z.exe' l $package | Select-String 'Type =|Path =|\.exe|\.msi|\.msix|\.asar|resources|bin/'
