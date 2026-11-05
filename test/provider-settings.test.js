@@ -3,13 +3,18 @@ import assert from 'node:assert/strict';
 import { mkdtemp,readFile,rm,stat,symlink,writeFile } from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {execFileSync} from 'node:child_process';
 import {readProviderSettings,saveProviderSettings} from '../lib/provider-settings.js';
 
 test('settings are private, never returned to UI, and blank key preserves existing key',async()=>{
  const directory=await mkdtemp(join(tmpdir(),'science-provider-test-'));
  try{
   await saveProviderSettings({baseUrl:'https://example.com',model:'test-model',key:'fixture-secret'},directory);
-  assert.equal((await stat(join(directory,'provider.json'))).mode & 0o777,0o600);
+  if(process.platform!=='win32') assert.equal((await stat(join(directory,'provider.json'))).mode & 0o777,0o600);
+  else {
+   const script=`$acl=[System.IO.File]::GetAccessControl($env:DSH_ACL_TEST_FILE); $sid=[System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value; $rules=@($acl.GetAccessRules($true,$true,[System.Security.Principal.SecurityIdentifier])); if($rules.Count -ne 1 -or $rules[0].IdentityReference.Value -ne $sid -or $rules[0].AccessControlType -ne 'Allow' -or (($rules[0].FileSystemRights -band [System.Security.AccessControl.FileSystemRights]::FullControl) -ne [System.Security.AccessControl.FileSystemRights]::FullControl)) { exit 1 }`;
+   execFileSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',script],{env:{...process.env,DSH_ACL_TEST_FILE:join(directory,'provider.json')},windowsHide:true});
+  }
   const exposed=await readProviderSettings(directory);
   assert.equal(exposed.keyConfigured,true);assert.equal(exposed.active,false);
   assert.equal(JSON.stringify(exposed).includes('fixture-secret'),false);

@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promis
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { localScienceUrl } from '../lib/config.js';
+import { localScienceUrl,validCliPath } from '../lib/config.js';
 import { apply, findArtifact, saveDownload } from '../lib/index.js';
 import { Readable } from 'node:stream';
 
@@ -13,6 +13,15 @@ test('login accepts only the configured local service', () => {
   assert.throws(() => localScienceUrl('https://example.com:8990/example', 8990));
   assert.throws(() => localScienceUrl('http://127.0.0.1:8000/example', 8990));
   assert.throws(() => localScienceUrl('http://user@localhost:8990/example', 8990));
+});
+
+test('validates Windows and macOS executable paths without accepting relative paths',()=>{
+  assert.equal(validCliPath('C:\\Program Files\\Science\\claude-science.exe','win32'),true);
+  assert.equal(validCliPath('C:relative\\science.exe','win32'),false);
+  assert.equal(validCliPath('relative\\science.exe','win32'),false);
+  assert.equal(validCliPath('claude-science.exe','win32'),true);
+  assert.equal(validCliPath('/Applications/Science/bin/claude-science','darwin'),true);
+  assert.equal(validCliPath('relative/science','darwin'),false);
 });
 
 test('host endpoints reject unauthenticated requests', async () => {
@@ -33,7 +42,9 @@ test('download uses the stored artifact, preserves names, and never overwrites',
     await mkdir(artifacts, {recursive:true}); await mkdir(downloads);
     const version='12345678-1234-1234-1234-123456789abc', artifact='87654321-4321-4321-4321-cba987654321';
     await writeFile(join(artifacts,'data.md'),'original');
-    execFileSync('sqlite3',[join(org,'operon-cli.db'),`CREATE TABLE artifacts(id TEXT, filename TEXT, latest_version_id TEXT); CREATE TABLE artifact_versions(id TEXT, artifact_id TEXT, storage_path TEXT); INSERT INTO artifacts VALUES('${artifact}','example.md','${version}'); INSERT INTO artifact_versions VALUES('${version}','${artifact}','data.md');`]);
+    const sqlite=await import('node:sqlite').catch(()=>null);
+    function runSql(sql){if(sqlite?.DatabaseSync){const db=new sqlite.DatabaseSync(join(org,'operon-cli.db'));try{db.exec(sql)}finally{db.close()}}else execFileSync('sqlite3',[join(org,'operon-cli.db'),sql]);}
+    runSql(`CREATE TABLE artifacts(id TEXT, filename TEXT, latest_version_id TEXT); CREATE TABLE artifact_versions(id TEXT, artifact_id TEXT, storage_path TEXT); INSERT INTO artifacts VALUES('${artifact}','example.md','${version}'); INSERT INTO artifact_versions VALUES('${version}','${artifact}','data.md');`);
     const record = await findArtifact(dir, undefined, version);
     assert.equal(record.name,'example.md');
     assert.equal(await saveDownload(record.source,record.name,downloads),'example.md');
@@ -43,7 +54,7 @@ test('download uses the stored artifact, preserves names, and never overwrites',
     await assert.rejects(findArtifact(dir,"' OR 1=1 --",undefined),/无效/);
     await writeFile(join(dir,'outside.md'),'outside');
     await symlink(join(dir,'outside.md'),join(artifacts,'escape.md'));
-    execFileSync('sqlite3',[join(org,'operon-cli.db'),`UPDATE artifact_versions SET storage_path='escape.md';`]);
+    runSql(`UPDATE artifact_versions SET storage_path='escape.md';`);
     await assert.rejects(findArtifact(dir,undefined,version),/文件位置不受支持/);
   } finally { await rm(dir,{recursive:true,force:true}); }
 });

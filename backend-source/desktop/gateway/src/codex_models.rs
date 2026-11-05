@@ -870,6 +870,9 @@ impl CodexModelCatalog {
             .open(path)
             .map_err(|_| CodexModelsError::cache("Codex model cache lock is unavailable"))?;
         validate_private_file(&file)?;
+        #[cfg(windows)]
+        crate::windows_file_lock::lock(&file)
+            .map_err(|_| CodexModelsError::cache("Codex model cache lock is unavailable"))?;
         #[cfg(unix)]
         loop {
             if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX) } == 0 {
@@ -1062,6 +1065,8 @@ struct CacheFileLock(File);
 
 impl Drop for CacheFileLock {
     fn drop(&mut self) {
+        #[cfg(windows)]
+        let _ = self.0.unlock();
         #[cfg(unix)]
         let _ = unsafe { libc::flock(self.0.as_raw_fd(), libc::LOCK_UN) };
     }

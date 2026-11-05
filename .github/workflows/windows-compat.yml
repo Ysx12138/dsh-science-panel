@@ -1,0 +1,48 @@
+name: Windows compatibility
+on:
+  workflow_dispatch:
+  push:
+    branches: [windows-compat]
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run plugin tests on Windows
+        run: npm test
+  gateway:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend-source/desktop/gateway
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test native Windows file locks
+        run: |
+          rustc --test src/windows_file_lock.rs -o windows-file-lock-test.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./windows-file-lock-test.exe
+      - name: Check Windows gateway
+        run: cargo check --locked
+      - name: Build Windows gateway
+        run: cargo build --locked --release
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test compiled Windows gateway
+        working-directory: .
+        run: node --test test/windows-gateway.test.js
+        env:
+          SCIENCE_GATEWAY_TEST: ${{ github.workspace }}\backend-source\desktop\gateway\target\release\csswitch-gateway.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: science-gateway-windows-x64
+          path: backend-source/desktop/gateway/target/release/csswitch-gateway.exe

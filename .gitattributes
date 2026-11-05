@@ -1,0 +1,3 @@
+# Provider identity hashes include these files verbatim at compile time.
+# Windows and macOS must embed exactly the same bytes.
+backend-source/catalog/*.json text eol=lf
