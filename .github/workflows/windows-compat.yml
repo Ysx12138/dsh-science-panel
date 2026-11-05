@@ -25,6 +25,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Test native Windows file locks
+        run: |
+          rustc --test src/windows_file_lock.rs -o windows-file-lock-test.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./windows-file-lock-test.exe
       - name: Check Windows gateway
         run: cargo check --locked
       - name: Build Windows gateway

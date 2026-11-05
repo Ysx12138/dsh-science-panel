@@ -23,3 +23,5 @@ pub mod skill_install;
 #[path = "skill_install_unsupported.rs"]
 pub mod skill_install;
 pub mod static_profile;
+#[cfg(windows)]
+mod windows_file_lock;
