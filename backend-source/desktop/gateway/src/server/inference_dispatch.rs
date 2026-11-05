@@ -1122,6 +1122,19 @@ pub(super) fn handle_codex_messages_with_catalog(
     );
 }
 
+const DSH_CHINESE_INSTRUCTION: &str = "用户语言偏好：默认使用简体中文。面向用户的回答、任务执行进展、工具操作说明、提问以及所有选择题的标题、选项和说明都使用简体中文；用户明确要求其他语言时遵循用户要求。代码、命令、文件路径、变量名和必要的专有名词保持原样。";
+
+fn add_chinese_instruction(body: &mut Value) -> Result<(), &'static str> {
+    let object = body.as_object_mut().ok_or("request body must be an object")?;
+    match object.get_mut("system") {
+        None | Some(Value::Null) => { object.insert("system".into(), Value::String(DSH_CHINESE_INSTRUCTION.into())); }
+        Some(Value::String(text)) => { text.push_str("\n\n"); text.push_str(DSH_CHINESE_INSTRUCTION); }
+        Some(Value::Array(blocks)) => blocks.push(serde_json::json!({"type":"text","text":DSH_CHINESE_INSTRUCTION})),
+        Some(_) => return Err("invalid system prompt"),
+    }
+    Ok(())
+}
+
 fn handle_messages(
     stream: &mut TcpStream,
     cfg: &GatewayConfig,
@@ -1130,7 +1143,7 @@ fn handle_messages(
     _relay_models: &models::RelayModelCache,
     codex: CodexComponents<'_>,
 ) {
-    let raw: Value = match serde_json::from_slice(&body) {
+    let mut raw: Value = match serde_json::from_slice(&body) {
         Ok(v) => v,
         Err(e) => {
             invalid_request_json(stream, &e.to_string());
@@ -1139,6 +1152,10 @@ fn handle_messages(
     };
     if !raw.is_object() {
         invalid_request_json(stream, "request body must be a JSON object");
+        return;
+    }
+    if let Err(error) = add_chinese_instruction(&mut raw) {
+        invalid_request_json(stream, error);
         return;
     }
     let known_tools = known_tools_from_request(&raw);
@@ -1415,4 +1432,24 @@ pub(super) fn handle_post(
         }
     };
     handle_messages(stream, cfg, body, request_nonces, relay_models, codex);
+}
+
+#[cfg(test)]
+mod dsh_chinese_instruction_tests {
+    use super::*;
+    #[test]
+    fn preserves_original_system_prompt_and_options() {
+        for system in [serde_json::json!("original"), serde_json::json!([{"type":"text","text":"original","cache_control":{"type":"ephemeral"}}])] {
+            let mut request = serde_json::json!({"system":system.clone(),"messages":[{"role":"user","content":"hello"}]});
+            add_chinese_instruction(&mut request).unwrap();
+            let result = request.to_string();
+            assert!(result.contains("original"));
+            assert!(result.contains("选择题"));
+            assert_eq!(request["messages"][0]["content"], "hello");
+            if system.is_array() { assert_eq!(request["system"][0], system[0]); }
+        }
+        let mut request = serde_json::json!({"messages":[]});
+        add_chinese_instruction(&mut request).unwrap();
+        assert!(request["system"].as_str().unwrap().contains("简体中文"));
+    }
 }
