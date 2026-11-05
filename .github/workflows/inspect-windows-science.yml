@@ -1,5 +1,8 @@
 name: Inspect official Windows Science package
 on:
+  push:
+    branches: [windows-compat]
+    paths: [.github/workflows/inspect-windows-science.yml]
   workflow_dispatch:
 permissions:
   contents: read
