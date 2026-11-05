@@ -19,12 +19,13 @@ test('official Windows runtime starts with isolated local credentials',{skip:pro
  await writeFile(join(data,'.oauth-tokens',login.account+'.enc'),login.encryptedToken);
  const listen=await port();let preview=await port();while(preview===listen)preview=await port();
  const env={...process.env,USERPROFILE:root,HOME:root};
- const child=spawn(binary,['serve','--data-dir',data,'--host','127.0.0.1','--port',String(listen),'--sandbox-port',String(preview),'--no-browser','--no-auto-update'],{env,windowsHide:true,stdio:'ignore'});
+ const child=spawn(binary,['serve','--data-dir',data,'--host','127.0.0.1','--port',String(listen),'--sandbox-port',String(preview),'--no-browser','--no-auto-update'],{env,windowsHide:true,stdio:['ignore','pipe','pipe']});
+ let diagnostic='';for(const stream of [child.stdout,child.stderr])stream.on('data',chunk=>{diagnostic=(diagnostic+chunk.toString()).slice(-6000)});
  let failed;child.once('error',()=>{failed=true});
  try{
   let ready=false;
   for(let i=0;i<180;i++){
-   if(failed||child.exitCode!==null||child.signalCode!==null)throw new Error('Windows Science exited before readiness');
+   if(failed||child.exitCode!==null||child.signalCode!==null)throw new Error('Windows Science exited before readiness: '+diagnostic.replace(/https?:\/\/[^\s]+/g,'[redacted-url]').replace(/sk-ant-[^\s]+/g,'[redacted-token]').slice(-2500));
    try{const res=await fetch(`http://127.0.0.1:${listen}/`,{signal:AbortSignal.timeout(300)});await res.arrayBuffer();if(res.status<500){ready=true;break;}}catch{}
    await delay(250);
   }
