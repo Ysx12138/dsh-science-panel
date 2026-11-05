@@ -18,7 +18,9 @@ test('official Windows runtime starts with isolated local credentials',{skip:pro
  await writeFile(join(data,'active-org.json'),JSON.stringify({org_uuid:login.org}));
  await writeFile(join(data,'.oauth-tokens',login.account+'.enc'),login.encryptedToken);
  const listen=await port();let preview=await port();while(preview===listen)preview=await port();
- const env={...process.env,USERPROFILE:root,HOME:root};
+ // Windows sandbox resolves Known Folders through the OS. Keep the OS profile
+ // intact; Science's explicit --data-dir scopes this fixture's auth and state.
+ const env={...process.env};
  const child=spawn(binary,['serve','--data-dir',data,'--host','127.0.0.1','--port',String(listen),'--sandbox-port',String(preview),'--no-browser','--no-auto-update'],{env,windowsHide:true,stdio:['ignore','pipe','pipe']});
  let diagnostic='';for(const stream of [child.stdout,child.stderr])stream.on('data',chunk=>{diagnostic=(diagnostic+chunk.toString()).slice(-6000)});
  let failed;child.once('error',()=>{failed=true});
