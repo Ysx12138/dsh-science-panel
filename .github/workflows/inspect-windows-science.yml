@@ -11,6 +11,10 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
       - name: Download and inspect official package
         shell: pwsh
         run: |
@@ -24,3 +28,8 @@ jobs:
           & $package --version
           & $package --help
           & $package serve --help
+      - name: Start official runtime with temporary sandbox data
+        shell: pwsh
+        run: |
+          $env:DSH_SCIENCE_PACKAGE = Join-Path $env:RUNNER_TEMP 'science-setup.exe'
+          node --test test/windows-science-live.test.js
