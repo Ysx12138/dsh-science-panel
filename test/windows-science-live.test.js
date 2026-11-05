@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,mkdir,writeFile,rm} from 'node:fs/promises';
+import {mkdtemp,mkdir,writeFile,rm,unlink} from 'node:fs/promises';
 import {tmpdir} from 'node:os';import {join} from 'node:path';
 import {spawn,execFile} from 'node:child_process';import {promisify} from 'node:util';
 import {createServer} from 'node:net';import {setTimeout as delay} from 'node:timers/promises';
 import {createLocalLogin} from '../lib/windows-login.js';
 import {verifyWindowsScience} from '../lib/windows-science-runtime.js';
 import {secureWindowsPath} from '../lib/provider-settings.js';
+import {once} from 'node:events';
 import {WindowsBackendRuntime} from '../lib/windows-backend-runtime.js';
 const exec=promisify(execFile);
 async function port(){const s=createServer();await new Promise((ok,no)=>{s.once('error',no);s.listen(0,'127.0.0.1',ok)});const p=s.address().port;await new Promise(ok=>s.close(ok));return p;}
@@ -50,6 +51,7 @@ test('Windows plugin controller starts, returns a login URL, stops, and restarts
  const controller=new WindowsBackendRuntime({root,installer:async()=>process.env.DSH_SCIENCE_PACKAGE,settingsResolver:async()=>({baseUrl:'http://127.0.0.1:9',model:'fixture-model',key:'fixture-key'})});
  try{
   for(let run=0;run<2;run++){
+   if(run===1){const old=spawn(process.execPath,['-e','']);await once(old,'exit');await writeFile(join(root,'windows-owner.lock'),String(old.pid));}
    const result=await controller.start();assert.ok(result.port>0);
    assert.equal(controller.config.port,result.port);
    const {stdout}=await exec(controller.config.cli,['url','--data-dir',controller.config.dataDir],{timeout:15000,windowsHide:true});
@@ -57,5 +59,8 @@ test('Windows plugin controller starts, returns a login URL, stops, and restarts
    assert.ok(['localhost','127.0.0.1','[::1]'].includes(url.hostname));assert.equal(Number(url.port),result.port);
    await controller.stop();assert.equal(controller.config,null);
   }
+  await writeFile(join(root,'windows-owner.lock'),String(process.pid));
+  await assert.rejects(controller.start(),/已被占用/);
+  await unlink(join(root,'windows-owner.lock'));
  }finally{await controller.stop();await rm(root,{recursive:true,force:true,maxRetries:5,retryDelay:200});}
 });
