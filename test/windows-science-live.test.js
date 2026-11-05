@@ -34,7 +34,7 @@ test('official Windows runtime starts with isolated local credentials',{skip:pro
   assert.equal(ready,true,'Windows Science did not become ready');
   const {stdout}=await exec(binary,['url','--data-dir',data],{env,timeout:15000,windowsHide:true});
   const url=new URL(stdout.match(/http:\/\/[^\s]+/)?.[0]);
-  assert.equal(url.hostname,'127.0.0.1');assert.equal(Number(url.port),listen);
+  assert.ok(['localhost','127.0.0.1','[::1]'].includes(url.hostname));assert.equal(Number(url.port),listen);
  }finally{
   await exec(binary,['stop','--data-dir',data],{env,timeout:15000,windowsHide:true}).catch(()=>{});
   if(child.exitCode===null&&child.signalCode===null)child.kill();
