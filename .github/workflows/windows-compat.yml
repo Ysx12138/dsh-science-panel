@@ -34,6 +34,14 @@ jobs:
         run: cargo check --locked
       - name: Build Windows gateway
         run: cargo build --locked --release
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test compiled Windows gateway
+        working-directory: .
+        run: node --test test/windows-gateway.test.js
+        env:
+          SCIENCE_GATEWAY_TEST: ${{ github.workspace }}\backend-source\desktop\gateway\target\release\csswitch-gateway.exe
       - uses: actions/upload-artifact@v4
         with:
           name: science-gateway-windows-x64
