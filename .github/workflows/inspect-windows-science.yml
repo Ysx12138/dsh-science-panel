@@ -21,3 +21,6 @@ jobs:
           if ($signature.Status -ne 'Valid') { throw 'Official package signature is invalid' }
           $signature.SignerCertificate.Subject
           & 'C:\Program Files\7-Zip\7z.exe' l $package | Select-String 'Type =|Path =|\.exe|\.msi|\.msix|\.asar|resources|bin/'
+          & $package --version
+          & $package --help
+          & $package serve --help
