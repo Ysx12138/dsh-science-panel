@@ -8,7 +8,7 @@
 
 1. 安装并打开 DeepSeek Harness。版本范围见 `package.json` 的 `engines.dsh`。
 2. 在 DSH 中进入「插件」→「添加插件」→「安装第三方插件」，输入 GitHub 仓库地址 `https://github.com/Ysx12138/dsh-science-panel` 并安装。npm 包发布后，也可以输入 `dsh-science-panel`。
-3. 在 DSH 左侧打开「Claude Science」。首次使用会弹出模型设置：默认选择 **OpenCode / Qwen3.8 Flash**，填写该服务的 API Key（模型服务密钥）并保存。已有 Anthropic 官方 API Key 的用户也可选择对应预设。
+3. 在 DSH 左侧打开「Claude Science」。在启动页填写第三方服务地址、模型名称和 API Key（模型服务密钥），点击「保存并启动」。也可选择 OpenCode 或 Anthropic 官方预设。点击右上角「Skip」可跳过配置，尝试连接已运行的 Science。
 4. 插件会自动查找已有的 Science 或 CSSwitch 缓存；若没有，就通过电脑网络或已设置的系统代理下载并安装官方 Science，再自动启动。下载过程中请保持 DSH 打开。
 
 下载的程序会检查 Anthropic 的开发者签名；已有文件不会被覆盖。Mac 安装到“应用程序”文件夹需要当前用户有写入权限。Windows 将官方独立 EXE 下载到 `%USERPROFILE%\.dsh-science-backend\runtime-windows`，使用独立数据目录启动，不需要 CSSwitch、Bash 或 WSL。使用官方软件及账号须遵守其服务条款和可用性要求。
@@ -24,7 +24,7 @@ Mac 用户可在克隆目录运行 `./scripts/check-prerequisites.sh` 检查本�
 - Science 在 DSH 独立目录下运行。项目只提供界面和运行桥接，不包含个人历史会话、私有技能、MCP 配置或学术服务密钥。
 - 文件下载保存到“下载”文件夹，同名文件自动编号。Windows 下载读取依赖 DSH 后台的 Node.js 22.13 或更高版本内置 SQLite。
 - Windows 使用系统用户文件权限保护配置，并通过系统互斥保护启动和异常恢复；保留 Windows 的系统用户目录，仅隔离 Science 的数据目录。CSSwitch 的外部技能事务安装桥接尚未移植到 Windows，调用时会明确拒绝。
-- 当前只支持 Anthropic 兼容接口。OpenCode 的 DeepSeek V4.1 Flash 在其[官方模型表](https://opencode.ai/v2/docs/console/models/)中使用 OpenAI 兼容接口，不能直接作为本项目的 Anthropic 预设使用；默认选用表中支持 Anthropic 接口的 Qwen3.8 Flash。可用模型、服务权限和价格以服务商为准。
+- 当前只支持 Anthropic 兼容接口。OpenCode 的 DeepSeek V4.1 Flash 在其[官方模型表](https://opencode.ai/v2/docs/console/models/)中使用 OpenAI 兼容接口，不能直接作为本项目的 Anthropic 预设使用；OpenCode 预设选用表中支持 Anthropic 接口的 Qwen3.8 Flash。可用模型、服务权限和价格以服务商为准。
 - Science 本体、模型服务与 API Key 是不同的东西：前者提供工作界面，后者提供模型能力。
 
 ## 已验证与待验证
